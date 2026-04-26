@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#000" />
+<title>ペンライト</title>
+<link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+P+One&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#000}
+body{font-family:system-ui,sans-serif;color:#fff;touch-action:manipulation;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .3s}
+body.lit{background:var(--col,#fff)}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;padding:14px;gap:10px}
+.title{font-family:"Mochiy Pop P One",sans-serif;font-size:20px;color:#fff;text-shadow:0 0 8px #000;margin:6px 0;text-align:center;mix-blend-mode:difference}
+.lit .title{display:none}
+.colors{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lit .colors{display:none}
+.colors button{aspect-ratio:1;border:3px solid rgba(255,255,255,.3);border-radius:50%;cursor:pointer;font-size:24px}
+.colors button.on{border-color:#fff;box-shadow:0 0 12px rgba(255,255,255,.5)}
+.modes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.lit .modes{display:none}
+.modes button{background:rgba(255,255,255,.1);border:2px solid #fff;color:#fff;padding:6px 12px;font-size:12px;border-radius:999px;cursor:pointer}
+.modes button.on{background:#fff;color:#000}
+.actions{display:flex;gap:8px;justify-content:center}
+.lit .actions{position:fixed;bottom:14px;left:14px;right:14px;mix-blend-mode:difference}
+.actions button{background:#fff;color:#000;border:3px solid #000;padding:14px 28px;font-family:"Mochiy Pop P One",sans-serif;font-size:16px;border-radius:999px;cursor:pointer;box-shadow:3px 3px 0 #000}
+.actions .red{background:#ef4444;color:#fff}
+.note{font-size:10px;text-align:center;opacity:.6;line-height:1.5}
+.lit .note{display:none}
+.spacer{flex:1}
+.lit .spacer{display:none}
+/* Strobe / pulse */
+body.strobe{animation:strobe .15s steps(2) infinite}
+@keyframes strobe{0%{background:var(--col,#fff)}50%{background:#000}}
+body.pulse{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(.5)}}
+body.rainbow{animation:rainbow 5s linear infinite}
+@keyframes rainbow{0%{background:#ef4444}16%{background:#f97316}33%{background:#fbbf24}50%{background:#10b981}66%{background:#3b82f6}83%{background:#a855f7}100%{background:#ef4444}}
+</style>
+</head>
+<body>
+<div id="app">
+<h1 class="title">ペンライト 💡</h1>
+<div class="spacer"></div>
+<div class="colors" id="colors"></div>
+<div class="modes" id="modes">
+  <button data-m="solid" class="on">●</button>
+  <button data-m="strobe">⚡ ストロボ</button>
+  <button data-m="pulse">💓 脈動</button>
+  <button data-m="rainbow">🌈 虹</button>
+</div>
+<div class="actions">
+  <button id="btn-go">💡 点灯</button>
+</div>
+<div class="note">タップでライト点灯 / 振ると次の色へ / 全画面で応援に最適</div>
+</div>
+<script>
+(()=>{
+'use strict';
+const COLORS=['#ffffff','#ef4444','#fbbf24','#10b981','#3b82f6','#a855f7','#ec4899','#06b6d4','#84cc16','#f97316'];
+const $=(id)=>document.getElementById(id);
+const cBox=$('colors');
+let curColor='#ffffff',curMode='solid',lit=false;
+COLORS.forEach((c,i)=>{
+  const b=document.createElement('button');b.style.background=c;b.dataset.c=c;
+  if(i===0)b.classList.add('on');
+  b.addEventListener('click',()=>{curColor=c;document.documentElement.style.setProperty('--col',c);document.querySelectorAll('#colors button').forEach(x=>x.classList.toggle('on',x===b))});
+  cBox.appendChild(b);
+});
+function toggle(){
+  lit=!lit;
+  document.body.classList.toggle('lit',lit);
+  applyMode();
+  $('btn-go').textContent=lit?'⏹ 消灯':'💡 点灯';
+  // Wake Lock
+  if(lit && 'wakeLock' in navigator){try{navigator.wakeLock.request('screen').catch(()=>{})}catch(_){}}
+  if(lit){requestFullscreen()}
+}
+function applyMode(){
+  document.body.classList.remove('strobe','pulse','rainbow');
+  if(!lit)return;
+  if(curMode==='strobe')document.body.classList.add('strobe');
+  else if(curMode==='pulse')document.body.classList.add('pulse');
+  else if(curMode==='rainbow')document.body.classList.add('rainbow');
+}
+async function requestFullscreen(){
+  try{await document.documentElement.requestFullscreen()}catch(_){}
+}
+document.documentElement.style.setProperty('--col',curColor);
+document.querySelectorAll('#modes button').forEach(b=>b.addEventListener('click',()=>{
+  curMode=b.dataset.m;document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));
+  if(lit)applyMode();
+}));
+$('btn-go').addEventListener('click',toggle);
+// Tap on body when lit cycles colors
+document.body.addEventListener('click',e=>{
+  if(!lit)return;
+  if(e.target.closest('button'))return;
+  // cycle color
+  const i=COLORS.indexOf(curColor);
+  curColor=COLORS[(i+1)%COLORS.length];
+  document.documentElement.style.setProperty('--col',curColor);
+});
+// Shake to cycle
+let lastShake=0;
+window.addEventListener('devicemotion',e=>{
+  const a=e.accelerationIncludingGravity;if(!a)return;
+  const m=Math.hypot(a.x||0,a.y||0,a.z||0);
+  if(m>22 && Date.now()-lastShake>800 && lit){
+    lastShake=Date.now();
+    const i=COLORS.indexOf(curColor);curColor=COLORS[(i+1)%COLORS.length];
+    document.documentElement.style.setProperty('--col',curColor);
+  }
+});
+})();
+</script>
+</body>
+</html>
