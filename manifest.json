@@ -1,6 +1,6 @@
 {
   "name": "ペンライト",
-  "short_name": "ライト",
+  "short_name": "ペンライト",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
